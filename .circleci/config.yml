@@ -70,7 +70,7 @@ jobs:
           name: Check docker version
           command: |
             unset ${!DOCKER*}
-            rc-update add docker boot
+            service docker start
             docker version
       - run:
           name: Load Docker image layer cache
