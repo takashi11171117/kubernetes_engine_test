@@ -1,0 +1,124 @@
+version: 2
+jobs:
+  build:
+    working_directory: /app
+    docker:
+      - image: google/cloud-sdk:171.0.0-alpine
+    environment:
+      - PROJECT_NAME: elegant-beach-194805
+      - CONTAINER_NAME: quickstart
+      - CLUSTER_NAME:  testproject
+      - CLOUDSDK_COMPUTE_ZONE: asia-east1-a
+      - GOOGLE_APPLICATION_CREDENTIALS: ${HOME}/account-auth.json
+
+    steps:
+      - checkout
+      - setup_remote_docker
+      - restore_cache:
+          keys:
+            - v1-{{ .Branch }}
+          paths:
+            - /caches/app.tar
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --no-cache \
+              py-pip=9.0.0-r1 \
+              gettext
+            pip install \
+              docker-compose==1.12.0
+            gcloud components install kubectl
+            apk add --no-cache --virtual .ruby-builddeps \
+              autoconf \
+              bison \
+              bzip2 \
+              bzip2-dev \
+              ca-certificates \
+              coreutils \
+              gcc \
+              g++ \
+              make \
+              gdbm-dev \
+              glib-dev \
+              libc-dev \
+              libedit-dev \
+              libffi-dev \
+              libxml2-dev \
+              libxslt-dev \
+              linux-headers \
+              cyrus-sasl-dev \
+              ncurses-dev \
+              openssl-dev \
+              procps \
+              tcl-dev \
+              yaml-dev \
+              zlib-dev \
+              tar
+            cd /tmp
+            wget -q "http://cache.ruby-lang.org/pub/ruby/2.3/ruby-2.3.0.tar.gz" -O ruby-2.3.0.tar.gz
+            tar zxf ruby-2.3.0.tar.gz
+            cd ruby-2.3.0
+            ./configure --disable-install-doc --disable-install-rdoc && make && make install
+            cd ..
+            rm -rf /tmp/*
+            echo "install: --no-document" > /root/.gemrc
+            echo "update: --no-document" >> /root/.gemrc
+            gem install bundler
+      - run:
+          name: Install Docker client
+          command: |
+            set -x
+            VER="17.05.0-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://get.docker.com/builds/Linux/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+            zwz
+      - run:
+          name: Check docker version
+          command: |
+            docker version
+      - run:
+          name: Load Docker image layer cache
+          command: |
+            set +o pipefail
+            docker load -i /caches/app.tar | true
+      - restore_cache:
+          key: job-medley-app-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: bundle install
+          command: bundle install --jobs=4 --path=vendor/bundle
+      - save_cache:
+          key: job-medley-app-{{ checksum "Gemfile.lock" }}
+          paths:
+            vendor/bundle
+      - run:
+          name: Build application Docker image
+          command: |
+            docker build --cache-from=gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:latest -t gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 .
+            docker tag gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:latest
+      - run:
+          name: Save Docker image layer cache
+          command: |
+            mkdir -p /caches
+            docker save -o /caches/app.tar asia.gcr.io/${PROJECT_NAME}/sample:latest
+      - save_cache:
+          key: v1-{{ .Branch }}-{{ epoch }}
+          paths:
+            - /caches/app.tar
+      - run:
+          name: Run tests
+          command: |
+            bundle exec rake
+      - deploy:
+          name: Deploy application Docker image
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              echo $ACCT_AUTH | base64 -d > ${HOME}/account-auth.json
+              gcloud auth activate-service-account --key-file ${HOME}/account-auth.json
+              gcloud config set project $PROJECT_NAME
+              gcloud --quiet config set container/cluster $CLUSTER_NAME
+              gcloud config set compute/zone ${CLOUDSDK_COMPUTE_ZONE}
+              gcloud --quiet container clusters get-credentials $CLUSTER_NAME
+              gcloud config set container/use_client_certificate True
+              ./deploy.sh
+            fi
