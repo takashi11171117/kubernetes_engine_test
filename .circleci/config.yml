@@ -70,8 +70,7 @@ jobs:
           name: Check docker version
           command: |
             unset ${!DOCKER*}
-            service docker start
-            docker version
+            docker ps
       - run:
           name: Load Docker image layer cache
           command: |
