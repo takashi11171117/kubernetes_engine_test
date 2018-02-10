@@ -71,8 +71,7 @@ jobs:
           command: |
             unset ${!DOCKER*}
             rc-update add docker boot
-            sudo su -
-            service docker start
+            whoami
             docker version
       - run:
           name: Load Docker image layer cache
