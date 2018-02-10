@@ -75,6 +75,7 @@ jobs:
       - run:
           name: Check docker version
           command: |
+            unset ${!DOCKER*}
             docker version
       - run:
           name: Load Docker image layer cache
