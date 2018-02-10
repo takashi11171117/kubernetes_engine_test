@@ -70,9 +70,8 @@ jobs:
           name: Check docker version
           command: |
             unset ${!DOCKER*}
-            service docker status
-            usermod -aG docker $(whoami)
-            docker ps
+            rc-update add docker boot
+            docker version
       - run:
           name: Load Docker image layer cache
           command: |
