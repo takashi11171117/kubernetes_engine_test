@@ -1,5 +1,5 @@
 # Import Python runtime and set up working directory
-FROM python:2.7-slim
+FROM python:2.7-alpine
 WORKDIR /app
 ADD . /app
 

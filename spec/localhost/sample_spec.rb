@@ -1,10 +1,11 @@
 require 'spec_helper'
-describe package('bash') do
-  it { should be_installed }
+
+describe command('python -V 2>&1') do
+  its(:stdout) { should match (/Python 2.7/) }
 end
 
 describe command('pip -V') do
-  its(:stdout) { should match (/pip/) }
+    its(:stdout) { should match (/pip/) }
 end
 
 describe command('pip list | grep Flask') do
@@ -12,5 +13,5 @@ describe command('pip list | grep Flask') do
 end
 
 describe port(80) do
-  it { should be_listening }
+    it { should be_listening }
 end
