@@ -1,0 +1,53 @@
+version: 2
+jobs:
+  build:
+    working_directory: /app
+    docker:
+      - image: asupara7/circledock
+    environment:
+      - PROJECT_NAME: elegant-beach-194805
+      - CONTAINER_NAME: quickstart
+      - CLUSTER_NAME:  testproject
+      - CLOUDSDK_COMPUTE_ZONE: asia-east1-a
+      - GOOGLE_APPLICATION_CREDENTIALS: ${HOME}/account-auth.json
+
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Install Docker client
+          command: |
+            set -x
+            VER="17.03.0-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+      - run:
+          name: Build application Docker image
+          command: |
+            docker build -t gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 .
+            docker tag gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:latest
+      - run:
+          name: Save image
+          command: docker image save gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 > ./docker-image.tar
+      - run:
+          name: Load image from tar
+          command: docker load -i ./docker-image.tar
+      - run:
+          name: Run tests
+          command: |
+            bundle exec rake
+      - deploy:
+          name: Deploy application Docker image
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              echo $ACCT_AUTH | base64 -d > ${HOME}/account-auth.json
+              gcloud auth activate-service-account --key-file ${HOME}/account-auth.json
+              gcloud config set project $PROJECT_NAME
+              gcloud --quiet config set container/cluster $CLUSTER_NAME
+              gcloud config set compute/zone ${CLOUDSDK_COMPUTE_ZONE}
+              gcloud --quiet container clusters get-credentials $CLUSTER_NAME
+              gcloud config set container/use_client_certificate True
+              ./deploy.sh
+            fi
