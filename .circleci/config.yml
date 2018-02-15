@@ -42,7 +42,7 @@ jobs:
           name: Deploy application Docker image
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
-              sudo chmod +x ./deploy.sh
+              chmod +x ./deploy.sh
               echo $ACCT_AUTH | base64 -d > ${HOME}/account-auth.json
               gcloud auth activate-service-account --key-file ${HOME}/account-auth.json
               gcloud config set project $PROJECT_NAME
