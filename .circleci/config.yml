@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /app
     docker:
-      - image: google/cloud-sdk:171.0.0-alpine
+      - image: asupara7/circledock
     environment:
       - PROJECT_NAME: elegant-beach-194805
       - CONTAINER_NAME: quickstart
@@ -14,58 +14,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - restore_cache:
-          keys:
-            - v1-{{ .Branch }}
-          paths:
-            - /caches/app.tar
-      - run:
-          name: Install dependencies
-          command: |
-            apk add --no-cache \
-              py-pip=9.0.0-r1 \
-              openrc \
-              docker \
-              gettext
-            pip install \
-              docker-compose==1.12.0
-            gcloud components install kubectl
-            apk add --no-cache --virtual .ruby-builddeps \
-              autoconf \
-              bison \
-              bzip2 \
-              bzip2-dev \
-              ca-certificates \
-              coreutils \
-              gcc \
-              g++ \
-              make \
-              gdbm-dev \
-              glib-dev \
-              libc-dev \
-              libedit-dev \
-              libffi-dev \
-              libxml2-dev \
-              libxslt-dev \
-              linux-headers \
-              cyrus-sasl-dev \
-              ncurses-dev \
-              openssl-dev \
-              procps \
-              tcl-dev \
-              yaml-dev \
-              zlib-dev \
-              tar
-            cd /tmp
-            wget -q "http://cache.ruby-lang.org/pub/ruby/2.3/ruby-2.3.0.tar.gz" -O ruby-2.3.0.tar.gz
-            tar zxf ruby-2.3.0.tar.gz
-            cd ruby-2.3.0
-            ./configure --disable-install-doc --disable-install-rdoc && make && make install
-            cd ..
-            rm -rf /tmp/*
-            echo "install: --no-document" > /root/.gemrc
-            echo "update: --no-document" >> /root/.gemrc
-            gem install bundler
+          docker_layer_caching: true
       - run:
           name: Check docker version
           command: |
@@ -74,33 +23,10 @@ jobs:
             whoami
             docker version
       - run:
-          name: Load Docker image layer cache
-          command: |
-            set +o pipefail
-            docker load -i /caches/app.tar | true
-      - restore_cache:
-          key: job-medley-app-{{ checksum "Gemfile.lock" }}
-      - run:
-          name: bundle install
-          command: bundle install --jobs=4 --path=vendor/bundle
-      - save_cache:
-          key: job-medley-app-{{ checksum "Gemfile.lock" }}
-          paths:
-            vendor/bundle
-      - run:
           name: Build application Docker image
           command: |
-            docker build --cache-from=gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:latest -t gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 .
+            docker build -t gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 .
             docker tag gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:latest
-      - run:
-          name: Save Docker image layer cache
-          command: |
-            mkdir -p /caches
-            docker save -o /caches/app.tar asia.gcr.io/${PROJECT_NAME}/sample:latest
-      - save_cache:
-          key: v1-{{ .Branch }}-{{ epoch }}
-          paths:
-            - /caches/app.tar
       - run:
           name: Run tests
           command: |
