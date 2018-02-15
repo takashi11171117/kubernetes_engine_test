@@ -16,17 +16,16 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
-          name: Check docker version
-          command: |
-            unset ${!DOCKER*}
-            rc-update add docker boot
-            whoami
-            docker version
-      - run:
           name: Build application Docker image
           command: |
             docker build -t gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 .
             docker tag gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:latest
+      - run:
+          name: Save image
+          command: docker image save gcr.io/${PROJECT_NAME}/${CONTAINER_NAME}:$CIRCLE_SHA1 > ./docker-image.tar
+      - run:
+          name: Load image from tar
+          command: docker load -i ./docker-image.tar
       - run:
           name: Run tests
           command: |
