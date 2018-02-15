@@ -1,18 +1,13 @@
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: ${CONTAINER_NAME}
-  labels:
-    app: ${CONTAINER_NAME}
+  name: deployment-testProject
 spec:
   replicas: 2
-  selector:
-    matchLabels:
-      app: ${CONTAINER_NAME}
   template:
     metadata:
       labels:
-        app: ${CONTAINER_NAME}
+        run: deployment-testProject
     spec:
       containers:
       - name: ${CONTAINER_NAME}
