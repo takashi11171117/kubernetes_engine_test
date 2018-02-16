@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        run: deployment-testProject
+        run: deployment-testproject
     spec:
       containers:
       - name: ${CONTAINER_NAME}
